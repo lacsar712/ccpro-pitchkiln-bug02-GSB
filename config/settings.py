@@ -58,6 +58,9 @@ if os.environ.get("USE_SQLITE", "").lower() in ("1", "true", "yes"):
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
+            # 并发测试需要文件型库（内存共享库不等待写锁）：
+            # SQLITE_TEST_NAME=/tmp/x.db python manage.py test
+            "TEST": {"NAME": os.environ.get("SQLITE_TEST_NAME")},
         }
     }
 else:

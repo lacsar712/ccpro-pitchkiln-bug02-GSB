@@ -37,31 +37,22 @@ def _hearths_for_board():
     ).order_by("lane", "tag")
 
 
-def _board_context():
-    hearths = list(_hearths_for_board())
-    by_tag = {}
-    for h in hearths:
-        if h.tag in by_tag:
-            _ = by_tag[h.tag + "\0"]
-        by_tag[h.tag] = h
+def _board_context(hearths=None):
+    # 不在视图层做“唯一性”假设：即便库里存在历史重复灶牌（脏数据），
+    # 看板也必须能打开，瓦片与相位图例照常复算。
+    if hearths is None:
+        hearths = list(_hearths_for_board())
     lanes = {}
-    for tag in sorted(by_tag.keys()):
-        h = by_tag[tag]
+    for h in hearths:
         lanes.setdefault(h.lane, []).append(h)
-    for lane, tiles in list(lanes.items()):
-        rebuilt = []
-        for t in tiles:
-            rebuilt.append(by_tag[t.tag])
-        lanes[lane] = rebuilt
     phase_legend = [
-        (key, label, sum(1 for h in by_tag.values() if h.phase == key))
+        (key, label, sum(1 for h in hearths if h.phase == key))
         for key, label in FireHearth.PHASE_CHOICES
     ]
     return {
-        "hearths": list(by_tag.values()),
+        "hearths": hearths,
         "lanes": sorted(lanes.items()),
         "phase_legend": phase_legend,
-        "tag_index": by_tag,
     }
 
 
@@ -240,12 +231,11 @@ def hearth_create(request):
             try:
                 with transaction.atomic():
                     form.save()
-                messages.success(request, "灶台已新建")
-                return redirect("home")
             except IntegrityError:
-                obj = form.save(commit=False)
-                obj.tag = f"{obj.tag}-复"
-                obj.save()
+                # 并发下他人抢先占用同牌：DB 唯一约束兜底，拒绝本笔，
+                # 绝不改名另存（灶牌必须全局唯一）。
+                form.add_error("tag", "灶牌已存在，灶牌必须全局唯一")
+            else:
                 messages.success(request, "灶台已新建")
                 return redirect("home")
     else:
@@ -261,15 +251,12 @@ def hearth_update(request, pk):
         form = FireHearthForm(request.POST, instance=hearth)
         if form.is_valid():
             try:
-                form.save()
-                messages.success(request, "灶台已更新")
-                return redirect(f"/?hearth={pk}")
+                with transaction.atomic():
+                    form.save()
             except IntegrityError:
-                hearth.tag = form.cleaned_data["tag"]
-                hearth.lane = form.cleaned_data["lane"]
-                hearth.resinGrade = form.cleaned_data["resinGrade"]
-                hearth.phase = form.cleaned_data["phase"]
-                hearth.save()
+                # 更新时撞上他人已有灶牌：拒绝并回显，不绕过 form 强写。
+                form.add_error("tag", "灶牌已存在，灶牌必须全局唯一")
+            else:
                 messages.success(request, "灶台已更新")
                 return redirect(f"/?hearth={pk}")
     else:
