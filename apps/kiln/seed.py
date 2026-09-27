@@ -66,8 +66,8 @@ def ensure_seed_data():
     )
     FireHearth.objects.create(
         lane=3,
-        tag="坑火-西二",
-        resinGrade="浮油级-脏牌",
+        tag="坑火-西三",
+        resinGrade="浮油级",
         phase=FireHearth.PHASE_COLD,
     )
     h5 = FireHearth.objects.create(

@@ -31,7 +31,7 @@ class FireHearth(models.Model):
     ]
 
     lane = models.PositiveIntegerField("过道号")
-    tag = models.CharField("灶牌", max_length=40)
+    tag = models.CharField("灶牌", max_length=40, unique=True)
     resinGrade = models.CharField("松香品级标签", max_length=80)
     phase = models.CharField(
         "相位",

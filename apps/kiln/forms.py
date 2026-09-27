@@ -124,4 +124,9 @@ class FireHearthForm(forms.ModelForm):
         tag = self.cleaned_data["tag"].strip()
         if not tag:
             raise forms.ValidationError("灶牌不能为空")
+        clash = FireHearth.objects.filter(tag=tag)
+        if self.instance and self.instance.pk:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise forms.ValidationError(f"灶牌「{tag}」已存在，请更换。")
         return tag
